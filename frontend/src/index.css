@@ -1,0 +1,100 @@
+:root {
+  --green-dark: #1a3c2a;
+  --green-medium: #2d5a3e;
+  --green-light: #3d7a52;
+  --beige: #f5e6c8;
+  --beige-light: #faf3e6;
+  --white: #ffffff;
+  --text-dark: #1a1a1a;
+  --text-light: #f5f5f5;
+  --danger: #c0392b;
+  --danger-hover: #e74c3c;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: var(--green-dark);
+  color: var(--text-light);
+  min-height: 100vh;
+}
+
+a {
+  color: var(--beige);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+input, textarea, select {
+  padding: 10px 14px;
+  border: 2px solid var(--beige);
+  border-radius: 6px;
+  font-size: 14px;
+  background: var(--white);
+  color: var(--text-dark);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--green-light);
+}
+
+.btn-primary {
+  background: var(--green-medium);
+  color: var(--white);
+}
+
+.btn-primary:hover {
+  background: var(--green-light);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: var(--white);
+}
+
+.btn-danger:hover {
+  background: var(--danger-hover);
+}
+
+.btn-beige {
+  background: var(--beige);
+  color: var(--green-dark);
+}
+
+.btn-beige:hover {
+  background: var(--beige-light);
+}
+
+.card {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 24px;
+  color: var(--text-dark);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
