@@ -1,4 +1,4 @@
-# ChatApp
+# ChatApp By IMAQUE Jeremy
 
 Application de chat en temps réel avec salons privés, partage par code d'invitation et authentification par email.
 
