@@ -27,8 +27,16 @@ export default function ChatPage() {
   const [joinError, setJoinError] = useState("");
   const [joinLoading, setJoinLoading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [contextMsg, setContextMsg] = useState(null);
+  const [contextPos, setContextPos] = useState({ x: 0, y: 0 });
   const ws = useRef(null);
   const messagesEndRef = useRef(null);
+
+  const REACTIONS = [
+    "👍", "❤️", "😂", "😮", "😢", "😡", "🔥", "🎉", "💯", "👏",
+    "🥰", "🤣", "😍", "🙏", "💪", "✨", "🥳", "😎", "🤗", "😱",
+    "🤔", "😴", "🥺", "😈", "🇫🇷"
+  ];
 
   // Charge la liste des salons accessibles au démarrage
   useEffect(() => {
@@ -91,12 +99,42 @@ export default function ChatPage() {
       if (!event.data) return;
       let data;
       try { data = JSON.parse(event.data); } catch { return; }
+      if (data.type === "reaction") {
+        setMessages((prev) => prev.map((m) => {
+          if (m.id !== data.message_id) return m;
+          const reactions = [...(m.reactions || [])];
+          const existing = reactions.find((r) => r.emoji === data.emoji);
+          if (data.action === "removed") {
+            if (existing && existing.count <= 1) {
+              return { ...m, reactions: reactions.filter((r) => r.emoji !== data.emoji) };
+            }
+            return { ...m, reactions: reactions.map((r) =>
+              r.emoji === data.emoji ? { ...r, count: r.count - 1, reacted: data.user_id === user?.id ? false : r.reacted } : r
+            ) };
+          }
+          if (existing) {
+            return { ...m, reactions: reactions.map((r) =>
+              r.emoji === data.emoji ? { ...r, count: r.count + 1, reacted: data.user_id === user?.id ? true : r.reacted } : r
+            ) };
+          }
+          return { ...m, reactions: [...reactions, { emoji: data.emoji, count: 1, reacted: data.user_id === user?.id }] };
+        }));
+        return;
+      }
       setMessages((prev) => [...prev, data]);
     };
     ws.current.onerror = () => {};
 
     return () => ws.current?.close();
   }, [activeGroup]);
+
+  // Ferme le menu contextuel au clic ailleurs
+  useEffect(() => {
+    if (!contextMsg) return;
+    const close = () => setContextMsg(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [contextMsg]);
 
   // Scroll automatique vers le bas à l'arrivée d'un nouveau message
   useEffect(() => {
@@ -109,6 +147,64 @@ export default function ChatPage() {
     if (!input.trim()) return;
     ws.current.send(JSON.stringify({ message: input }));
     setInput("");
+  };
+
+  // Ajoute/retire une réaction sur un message
+  const toggleReaction = async (msgId, emoji) => {
+    setContextMsg(null);
+    setMessages((prev) => prev.map((m) => {
+      if (m.id !== msgId) return m;
+      const reactions = [...(m.reactions || [])];
+      const existing = reactions.find((r) => r.emoji === emoji);
+      if (existing && existing.reacted) {
+        if (existing.count <= 1) return { ...m, reactions: reactions.filter((r) => r.emoji !== emoji) };
+        return { ...m, reactions: reactions.map((r) =>
+          r.emoji === emoji ? { ...r, count: r.count - 1, reacted: false } : r
+        ) };
+      }
+      if (existing) {
+        return { ...m, reactions: reactions.map((r) =>
+          r.emoji === emoji ? { ...r, count: r.count + 1, reacted: true } : r
+        ) };
+      }
+      return { ...m, reactions: [...reactions, { emoji, count: 1, reacted: true }] };
+    }));
+
+    try {
+      const res = await fetch(`${API}/messages/${msgId}/react/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCSRFToken(),
+        },
+        credentials: "include",
+        body: JSON.stringify({ emoji }),
+      });
+      if (!res.ok) {
+        // Revert on error
+        setMessages((prev) => prev.map((m) => {
+          if (m.id !== msgId) return m;
+          const reactions = [...(m.reactions || [])];
+          const existing = reactions.find((r) => r.emoji === emoji);
+          if (existing && existing.count <= 1) return { ...m, reactions: reactions.filter((r) => r.emoji !== emoji) };
+          if (existing) return { ...m, reactions: reactions.map((r) =>
+            r.emoji === emoji ? { ...r, count: r.count - 1, reacted: false } : r
+          ) };
+          return m;
+        }));
+      }
+    } catch {
+      setMessages((prev) => prev.map((m) => {
+        if (m.id !== msgId) return m;
+        const reactions = [...(m.reactions || [])];
+        const existing = reactions.find((r) => r.emoji === emoji);
+        if (existing && existing.count <= 1) return { ...m, reactions: reactions.filter((r) => r.emoji !== emoji) };
+        if (existing) return { ...m, reactions: reactions.map((r) =>
+          r.emoji === emoji ? { ...r, count: r.count - 1, reacted: false } : r
+        ) };
+        return m;
+      }));
+    }
   };
 
   // Déconnexion : vide la session et retourne à l'accueil
@@ -274,14 +370,57 @@ export default function ChatPage() {
         {/* Liste des messages */}
         <div className="messages">
           {messages.map((msg, i) => (
-            <div key={i} className={`message ${msg.user_id === user?.id ? "message--own" : ""}`}>
+            <div
+              key={i}
+              className={`message ${msg.user_id === user?.id ? "message--own" : ""}`}
+              onContextMenu={(e) => {
+                if (msg.user_id === user?.id) return;
+                e.preventDefault();
+                setContextMsg(msg.id);
+                setContextPos({ x: e.clientX, y: e.clientY });
+              }}
+            >
               <strong className="msg-author">{msg.nickname || msg.user_nickname}:</strong>
               <span className="msg-text">{msg.message || msg.content}</span>
               {msg.timestamp && <span className="msg-date">{new Date(msg.timestamp).toLocaleString("fr-FR")}</span>}
+
+              {/* Réactions existantes */}
+              {msg.reactions?.length > 0 && (
+                <div className="reactions-row">
+                  {msg.reactions.map((r) => (
+                    <button
+                      key={r.emoji}
+                      className={`reaction-badge ${r.reacted ? "reacted" : ""}`}
+                      onClick={() => toggleReaction(msg.id, r.emoji)}
+                    >
+                      {r.emoji} <span>{r.count}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Menu contextuel de réactions */}
+        {contextMsg && (
+          <div
+            className="reaction-context"
+            style={{ left: contextPos.x, top: contextPos.y }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {REACTIONS.map((emoji) => (
+              <button
+                key={emoji}
+                className="reaction-option"
+                onClick={() => toggleReaction(contextMsg, emoji)}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Formulaire d'envoi de message */}
         <div className="message-form-wrapper">
@@ -510,6 +649,7 @@ export default function ChatPage() {
           max-width: 80%;
           align-self: flex-start;
           box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+          position: relative;
         }
 
         .message--own {
@@ -531,6 +671,69 @@ export default function ChatPage() {
           font-size: 11px;
           color: #999;
           margin-top: 4px;
+        }
+
+        .reactions-row {
+          display: flex;
+          gap: 4px;
+          margin-top: 6px;
+          flex-wrap: wrap;
+        }
+
+        .reaction-badge {
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          padding: 2px 7px;
+          border-radius: 12px;
+          font-size: 13px;
+          background: #f0f0f0;
+          border: 1px solid transparent;
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+
+        .reaction-badge:hover {
+          background: #e0e0e0;
+        }
+
+        .reaction-badge.reacted {
+          background: #d4edda;
+          border-color: var(--green-medium);
+        }
+
+        .reaction-badge span {
+          font-size: 11px;
+          color: #666;
+        }
+
+        .reaction-context {
+          position: fixed;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 2px;
+          padding: 8px 10px;
+          max-width: 260px;
+          background: var(--white);
+          border-radius: 16px;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+          z-index: 1000;
+          transform: translate(-50%, 10px);
+        }
+
+        .reaction-option {
+          font-size: 22px;
+          padding: 4px;
+          border-radius: 50%;
+          cursor: pointer;
+          transition: transform 0.12s;
+          background: none;
+          border: none;
+          line-height: 1;
+        }
+
+        .reaction-option:hover {
+          transform: scale(1.35);
         }
 
         .message-form-wrapper {

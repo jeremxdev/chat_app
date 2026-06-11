@@ -59,11 +59,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(
             text_data=json.dumps(
                 {
+                    "type": "message",
                     "id": event["id"],
                     "content": event["message"],
                     "nickname": event["nickname"],
                     "user_id": event["user_id"],
                     "timestamp": event.get("timestamp"),
+                }
+            )
+        )
+
+    async def reaction_update(self, event):
+        # Diffuse une mise à jour de réaction à tous les clients du salon
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "reaction",
+                    "message_id": event["message_id"],
+                    "emoji": event["emoji"],
+                    "user_id": event["user_id"],
+                    "action": event["action"],
                 }
             )
         )

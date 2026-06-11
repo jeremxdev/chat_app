@@ -44,12 +44,12 @@ export default function AdminPage() {
   // Supprime un salon
   const deleteGroup = async (id) => {
     if (!confirm("Supprimer ce groupe ?")) return;
-    await fetch(`${API}/groups/${id}/`, {
+    const res = await fetch(`${API}/groups/${id}/`, {
       method: "DELETE",
       headers: { "X-CSRFToken": getCSRFToken() },
       credentials: "include",
     });
-    setGroups((prev) => prev.filter((g) => g.id !== id));
+    if (res.ok) setGroups((prev) => prev.filter((g) => g.id !== id));
   };
 
   return (

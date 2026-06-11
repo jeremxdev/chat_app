@@ -1,3 +1,5 @@
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.contrib.auth import authenticate, login, logout
 from django.db import models
 from django.shortcuts import get_object_or_404
@@ -6,7 +8,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 
-from .models import ChatGroup, Message, User
+from .models import ChatGroup, Message, Reaction, User
 from .serializers import (
     ChatGroupSerializer,
     MessageSerializer,
@@ -109,8 +111,11 @@ class ChatGroupViewSet(viewsets.ModelViewSet):
     serializer_class = ChatGroupSerializer
 
     def get_permissions(self):
-        # Seules les actions d'écriture nécessitent une authentification
-        if self.action in ["create", "update", "partial_update", "destroy"]:
+        # La suppression est réservée aux admins
+        if self.action == "destroy":
+            return [IsAdmin()]
+        # Les autres actions d'écriture nécessitent une authentification
+        if self.action in ["create", "update", "partial_update"]:
             return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]
 
@@ -176,3 +181,37 @@ class MessageViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def react(self, request, pk=None):
+        # Ajoute ou retire une réaction (émoji) sur un message (toggle)
+        message = self.get_object()
+        if message.user == request.user:
+            return Response({"error": "Vous ne pouvez pas réagir à vos propres messages"}, status=status.HTTP_403_FORBIDDEN)
+
+        emoji = request.data.get("emoji", "").strip()
+        if not emoji:
+            return Response({"error": "Emoji requis"}, status=status.HTTP_400_BAD_REQUEST)
+
+        reaction, created = Reaction.objects.get_or_create(
+            message=message, user=request.user, emoji=emoji
+        )
+        action_type = "added" if created else "removed"
+        if not created:
+            reaction.delete()
+
+        # Broadcast en temps réel via WebSocket
+        group_name = f"chat_{message.group_id}" if message.group_id else "chat_general"
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            {
+                "type": "reaction_update",
+                "message_id": message.id,
+                "emoji": emoji,
+                "user_id": request.user.id,
+                "action": action_type,
+            },
+        )
+
+        return Response({"action": action_type})

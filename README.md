@@ -14,6 +14,7 @@ Application de chat en temps réel avec salons privés, partage par code d'invit
 ### Authentification
 
 - Inscription avec email, nom d'utilisateur (unique, insensible à la casse) et mot de passe
+- Indicateur visuel de force du mot de passe (Faible / Moyen / Bon / Fort) basé sur la longueur, la présence de majuscules, minuscules, chiffres et caractères spéciaux
 - Connexion par email + mot de passe
 - Session utilisateur persistante (côté Django)
 - Administration : compte admin par défaut (`admin` / `admin123`)
@@ -34,6 +35,8 @@ Application de chat en temps réel avec salons privés, partage par code d'invit
 - Horodatage de chaque message (date + heure)
 - Messages de l'utilisateur mis en évidence (fond vert, aligné à droite)
 - Sélecteur d'émojis intégré
+- Réactions aux messages : clic droit sur un message pour ouvrir le sélecteur d'émojis (30 émojis disponibles), mise à jour en temps réel via WebSocket
+- Impossible de réagir à ses propres messages
 
 ### Administration
 
@@ -86,6 +89,7 @@ Le frontend est accessible sur `http://localhost:3000` et le backend sur `http:/
 | GET | `/api/groups/<id>/members/` | Membres d'un salon |
 | POST | `/api/groups/join-by-code/` | Rejoindre par code |
 | GET/POST | `/api/messages/` | Messages (filtrés par `?group=<id>`) |
+| POST | `/api/messages/<id>/react/` | Ajouter/retirer une réaction (toggle) |
 | WS | `/ws/chat/<group_id>/` | WebSocket pour les messages temps réel |
 
 ## Structure du projet
@@ -96,8 +100,8 @@ ChatApp/
 │   ├── chat/
 │   │   ├── management/commands/setup.py   # Création du compte admin
 │   │   ├── migrations/
-│   │   ├── consumers.py                   # WebSocket : réception et persistance des messages
-│   │   ├── models.py                      # User, ChatGroup, Message
+│   │   ├── consumers.py                   # WebSocket : réception et persistance des messages, réactions
+│   │   ├── models.py                      # User, ChatGroup, Message, Reaction
 │   │   ├── serializers.py                 # DRF serializers
 │   │   ├── urls.py                        # Routes API
 │   │   └── views.py                       # Vues API REST

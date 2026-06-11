@@ -71,3 +71,18 @@ class Message(models.Model):
 
     def __str__(self):
         return f"{self.user.nickname}: {self.content[:50]}"
+
+
+class Reaction(models.Model):
+    # Réaction (émoji) sur un message, un utilisateur ne peut réagir qu'une fois par émoji
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name="reactions")
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    emoji = models.CharField(max_length=10)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "chat_reaction"
+        unique_together = [["message", "user", "emoji"]]
+
+    def __str__(self):
+        return f"{self.user.nickname}: {self.emoji} on {self.message.id}"

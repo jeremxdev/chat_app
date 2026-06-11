@@ -13,6 +13,26 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
 
+  function getPasswordStrength(pw) {
+    if (!pw) return { score: 0, label: "", level: 0 };
+    let score = 0;
+    if (pw.length >= 4) score += 10;
+    if (pw.length >= 6) score += 10;
+    if (pw.length >= 8) score += 15;
+    if (pw.length >= 12) score += 10;
+    if (/[a-z]/.test(pw)) score += 15;
+    if (/[A-Z]/.test(pw)) score += 15;
+    if (/[0-9]/.test(pw)) score += 15;
+    if (/[^a-zA-Z0-9]/.test(pw)) score += 20;
+    const pct = Math.min(score, 100);
+    if (pct < 30) return { score: pct, label: "Faible", level: 1 };
+    if (pct < 60) return { score: pct, label: "Moyen", level: 2 };
+    if (pct < 80) return { score: pct, label: "Bon", level: 3 };
+    return { score: pct, label: "Fort", level: 4 };
+  }
+
+  const pwStrength = getPasswordStrength(password);
+
   // Connexion avec nom d'utilisateur et mot de passe
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
@@ -125,6 +145,14 @@ export default function LoginPage() {
                 required
                 minLength={4}
               />
+              {password && (
+                <div className="pw-strength-bar">
+                  <div
+                    className={`pw-strength-fill lv${pwStrength.level}`}
+                    style={{ width: `${pwStrength.score}%` }}
+                  />
+                </div>
+              )}
             </div>
             <div className="form-group">
               <label>Confirmer le mot de passe</label>
@@ -216,6 +244,35 @@ export default function LoginPage() {
           font-size: 13px;
           margin-bottom: 10px;
         }
+        .pw-strength-bar {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 6px;
+          height: 8px;
+          background: #e0e0e0;
+          border-radius: 4px;
+          overflow: visible;
+          position: relative;
+        }
+        .pw-strength-fill {
+          height: 100%;
+          border-radius: 4px;
+          transition: width 0.2s, background 0.2s;
+        }
+        .pw-strength-fill.lv1 { background: var(--danger); }
+        .pw-strength-fill.lv2 { background: #f0ad4e; }
+        .pw-strength-fill.lv3 { background: #8bc34a; }
+        .pw-strength-fill.lv4 { background: var(--green-medium); }
+        .pw-strength-label {
+          font-size: 11px;
+          white-space: nowrap;
+          font-weight: 600;
+        }
+        .pw-strength-label.lv1 { color: var(--danger); }
+        .pw-strength-label.lv2 { color: #f0ad4e; }
+        .pw-strength-label.lv3 { color: #8bc34a; }
+        .pw-strength-label.lv4 { color: var(--green-medium); }
         .loading {
           display: flex;
           align-items: center;
