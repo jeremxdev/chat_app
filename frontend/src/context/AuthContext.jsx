@@ -38,7 +38,8 @@ export function AuthProvider({ children }) {
       credentials: "include",
       body: JSON.stringify({ username, password }),
     });
-    const data = await res.json();
+    let data;
+    try { data = await res.json(); } catch { data = {}; }
     if (!res.ok) throw new Error(data.error || "Erreur de connexion");
     setUser(data);
     return data;
@@ -52,8 +53,12 @@ export function AuthProvider({ children }) {
       credentials: "include",
       body: JSON.stringify({ email, username, password }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Erreur d'inscription");
+    let data;
+    try { data = await res.json(); } catch {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Erreur ${res.status}: ${text || "réponse vide"}`);
+    }
+    if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
     setUser(data);
     return data;
   };

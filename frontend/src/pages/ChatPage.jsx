@@ -33,7 +33,7 @@ export default function ChatPage() {
   // Charge la liste des salons accessibles au démarrage
   useEffect(() => {
     fetch(`${API}/groups/`, { credentials: "include" })
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : [])
       .then(setGroups)
       .catch(() => {});
   }, []);
@@ -76,7 +76,7 @@ export default function ChatPage() {
       ? `${API}/messages/?group=${activeGroup.id}`
       : `${API}/messages/`;
     fetch(url, { credentials: "include" })
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : [])
       .then(setMessages)
       .catch(() => {});
   }, [activeGroup]);
@@ -88,7 +88,9 @@ export default function ChatPage() {
 
     ws.current = new WebSocket(url);
     ws.current.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+      if (!event.data) return;
+      let data;
+      try { data = JSON.parse(event.data); } catch { return; }
       setMessages((prev) => [...prev, data]);
     };
     ws.current.onerror = () => {};

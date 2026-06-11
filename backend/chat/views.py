@@ -1,6 +1,7 @@
 from django.contrib.auth import authenticate, login, logout
 from django.db import models
 from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -24,6 +25,7 @@ class IsAdmin(permissions.BasePermission):
 
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
+@csrf_exempt
 def login_view(request):
     # Connexion admin par nom d'utilisateur / mot de passe
     username = request.data.get("username")
@@ -56,6 +58,7 @@ def me(request):
 
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
+@csrf_exempt
 def register_view(request):
     # Inscription d'un nouvel utilisateur avec email, username et mot de passe
     email = request.data.get("email", "").strip()
