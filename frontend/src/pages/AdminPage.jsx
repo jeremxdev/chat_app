@@ -15,6 +15,10 @@ export default function AdminPage() {
   const [tab, setTab] = useState("users");
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editPrivate, setEditPrivate] = useState(false);
 
   // Utilitaire : fetch GET avec gestion d'erreur silencieuse
   const fetchData = async (url, setter) => {
@@ -50,6 +54,31 @@ export default function AdminPage() {
       credentials: "include",
     });
     if (res.ok) setGroups((prev) => prev.filter((g) => g.id !== id));
+  };
+
+  // Ouvre le formulaire d'édition d'un salon
+  const startEdit = (g) => {
+    setEditingGroup(g);
+    setEditName(g.name);
+    setEditDesc(g.description || "");
+    setEditPrivate(g.is_private);
+  };
+
+  // Sauvegarde les modifications d'un salon
+  const saveEdit = async (e) => {
+    e.preventDefault();
+    if (!editName.trim()) return;
+    const res = await fetch(`${API}/groups/${editingGroup.id}/`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": getCSRFToken() },
+      credentials: "include",
+      body: JSON.stringify({ name: editName, description: editDesc, is_private: editPrivate }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setGroups((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
+      setEditingGroup(null);
+    }
   };
 
   return (
@@ -143,7 +172,13 @@ export default function AdminPage() {
                     <td>{g.member_count}</td>
                     <td>{g.created_by_username || "—"}</td>
                     <td>{new Date(g.created_at).toLocaleString("fr-FR")}</td>
-                    <td>
+                    <td className="actions-cell">
+                      <button
+                        className="btn-beige btn-sm"
+                        onClick={() => startEdit(g)}
+                      >
+                        Éditer
+                      </button>
                       <button
                         className="btn-danger btn-sm"
                         onClick={() => deleteGroup(g.id)}
@@ -252,7 +287,97 @@ export default function AdminPage() {
         .inline-form input {
           flex: 1;
         }
+
+        .checkbox-label {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 14px;
+          cursor: pointer;
+          color: var(--text-dark);
+        }
+
+        .checkbox-label input {
+          width: auto;
+        }
+
+        .modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+
+        .modal {
+          width: 100%;
+          max-width: 440px;
+        }
+
+        .modal h3 {
+          margin-bottom: 16px;
+          color: var(--green-dark);
+        }
+
+        .modal .form-group {
+          margin-bottom: 14px;
+        }
+
+        .modal .form-group label {
+          display: block;
+          margin-bottom: 4px;
+          font-weight: 600;
+          font-size: 13px;
+          color: var(--green-dark);
+        }
+
+        .modal .form-group input,
+        .modal .form-group textarea {
+          width: 100%;
+        }
+
+        .modal-actions {
+          display: flex;
+          gap: 10px;
+          justify-content: flex-end;
+          margin-top: 16px;
+        }
       `}</style>
+
+      {/* ─── Modale d'édition d'un salon ────────────────── */}
+      {editingGroup && (
+        <div className="modal-overlay" onClick={() => setEditingGroup(null)}>
+          <div className="modal card" onClick={(e) => e.stopPropagation()}>
+            <h3>Modifier le salon</h3>
+            <form onSubmit={saveEdit}>
+              <div className="form-group">
+                <label>Nom</label>
+                <input value={editName} onChange={(e) => setEditName(e.target.value)} required />
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={3} />
+              </div>
+              <div className="form-group">
+                <label className="checkbox-label">
+                  <input type="checkbox" checked={editPrivate} onChange={(e) => setEditPrivate(e.target.checked)} />
+                  Salon privé
+                </label>
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn-danger" onClick={() => setEditingGroup(null)}>
+                  Annuler
+                </button>
+                <button type="submit" className="btn-primary">
+                  Enregistrer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

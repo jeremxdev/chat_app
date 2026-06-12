@@ -111,11 +111,11 @@ class ChatGroupViewSet(viewsets.ModelViewSet):
     serializer_class = ChatGroupSerializer
 
     def get_permissions(self):
-        # La suppression est réservée aux admins
-        if self.action == "destroy":
+        # La modification et la suppression sont réservées aux admins
+        if self.action in ["destroy", "update", "partial_update"]:
             return [IsAdmin()]
         # Les autres actions d'écriture nécessitent une authentification
-        if self.action in ["create", "update", "partial_update"]:
+        if self.action in ["create"]:
             return [permissions.IsAuthenticated()]
         return [permissions.AllowAny()]
 
